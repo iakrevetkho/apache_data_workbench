@@ -1,0 +1,395 @@
+version: "3.7"
+        
+volumes:
+# Monitoring
+  prometheus_data: {}
+  grafana_data: {}
+# Hadoop
+  hadoop_namenode:
+  hadoop_datanode:
+  # hadoop_historyserver:
+# Druid
+  metadata_data: {}
+  druid_middle_var: {}
+  historical_var: {}
+  druid_broker_var: {}
+  druid_coordinator_var: {}
+  druid_router_var: {}
+# Superset
+  superset_home:
+  superset_node_modules:
+  superset_db:
+  redis:
+# JupyteHub
+  jupyterhub-data:
+  jupyterhub-db:
+    
+# Superset
+x-superset-build: &superset-build
+  args:
+      NPM_BUILD_CMD: build-dev
+  context: ./
+  dockerfile: Dockerfile
+  target: dev
+x-superset-volumes: &superset-volumes
+  # /app/pythonpath_docker will be appended to the PYTHONPATH in the final container
+  - ./incubator-superset/docker/docker-init.sh:/app/docker-init.sh
+  - ./incubator-superset/docker/pythonpath_dev:/app/pythonpath
+  - ./incubator-superset/superset:/app/superset
+  - ./incubator-superset/superset-frontend:/app/superset-frontend
+  - superset_node_modules:/app/superset-frontend/superset_node_modules
+  - superset_home:/app/superset_home
+
+networks:
+  monitor-net:
+
+services:
+# Monitoring
+  prometheus:
+    image: prom/prometheus:v2.17.2
+    container_name: prometheus
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    # ports:
+    #   - "9090:9090"
+    networks:
+      - monitor-net
+
+  nodeexporter:
+    image: prom/node-exporter:v0.18.1
+    container_name: nodeexporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    networks:
+      - monitor-net
+
+  cadvisor:
+    image: gcr.io/google-containers/cadvisor:v0.36.0
+    container_name: cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      #- /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
+    restart: unless-stopped
+    privileged: true
+    networks:
+      - monitor-net
+
+  grafana:
+    image: grafana/grafana:6.7.3
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks:
+      - monitor-net
+
+  pushgateway:
+    image: prom/pushgateway:v1.2.0
+    container_name: pushgateway
+    restart: unless-stopped
+    networks:
+      - monitor-net
+
+# Hadoop
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    restart: unless-stopped
+    # ports:
+    #   - 9870:9870
+    #   - 9000:9000
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=test
+    env_file:
+      - ./hadoop.env
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    restart: unless-stopped
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870"
+    env_file:
+      - ./hadoop.env
+    depends_on:
+      - namenode
+
+  # resourcemanager:
+  #   image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
+  #   container_name: resourcemanager
+  #   restart: unless-stopped
+  #   environment:
+  #     SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864"
+  #   env_file:
+  #     - ./hadoop.env
+  #   depends_on:
+  #     - namenode
+  #     - datanode
+
+  # nodemanager1:
+  #   image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
+  #   container_name: nodemanager
+  #   restart: unless-stopped
+  #   environment:
+  #     SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
+  #   env_file:
+  #     - ./hadoop.env
+  #   depends_on:
+  #     - namenode
+  #     - datanode
+  #     - resourcemanager
+
+  # historyserver:
+  #   image: bde2020/hadoop-historyserver:2.0.0-hadoop3.2.1-java8
+  #   container_name: historyserver
+  #   restart: unless-stopped
+  #   environment:
+  #     SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
+  #   volumes:
+  #     - hadoop_historyserver:/hadoop/yarn/timeline
+  #   env_file:
+  #     - ./hadoop.env
+  #   depends_on:
+  #     - namenode
+  #     - datanode
+  #     - resourcemanager
+
+  hue:
+    image: gethue/hue:latest
+    container_name: hue
+    restart: unless-stopped
+    ports:
+    - "1000:1000"
+    volumes:
+      - ./hue.ini:/usr/share/hue/desktop/conf/z-hue.ini
+    depends_on:
+      - namenode
+      - datanode
+      # - resourcemanager
+
+# Zookeeper
+  zookeeper:
+    container_name: zookeeper
+    image: zookeeper:3.6
+    environment:
+      - ZOO_MY_ID=1
+# Druid
+  druid_postgres:
+    container_name: druid_postgres
+    image: postgres:10
+    volumes:
+      - metadata_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=FoolishPassword
+      - POSTGRES_USER=druid
+      - POSTGRES_DB=druid
+
+  druid_coordinator:
+    image: apache/druid:0.17.0
+    container_name: druid_coordinator
+    volumes:
+      - ./storage:/opt/data
+      - druid_coordinator_var:/opt/druid/var
+    depends_on: 
+      - zookeeper
+      - druid_postgres
+    # ports:
+    #   - "8081:8081"
+    command:
+      - coordinator
+    env_file:
+      - druid.env
+
+  druid_broker:
+    image: apache/druid:0.17.0
+    container_name: druid_broker
+    volumes:
+      - druid_broker_var:/opt/druid/var
+    depends_on: 
+      - zookeeper
+      - druid_postgres
+      - druid_coordinator
+    # ports:
+    #   - "8082:8082"
+    command:
+      - broker
+    env_file:
+      - druid.env
+
+  druid_historical:
+    image: apache/druid:0.17.0
+    container_name: druid_historical
+    volumes:
+      - ./storage:/opt/data
+      - historical_var:/opt/druid/var
+    depends_on: 
+      - zookeeper
+      - druid_postgres
+      - druid_coordinator
+    # ports:
+    #   - "8083:8083"
+    command:
+      - historical
+    env_file:
+      - druid.env
+
+  druid_middlemanager:
+    image: apache/druid:0.17.0
+    container_name: druid_middlemanager
+    volumes:
+      - ./storage:/opt/data
+      - druid_middle_var:/opt/druid/var
+    depends_on: 
+      - zookeeper
+      - druid_postgres
+      - druid_coordinator
+    # ports:
+    #   - "8091:8091"
+    command:
+      - middleManager
+    env_file:
+      - druid.env
+
+  druid_router:
+    image: apache/druid:0.17.0
+    container_name: druid_router
+    volumes:
+      - druid_router_var:/opt/druid/var
+    depends_on:
+      - zookeeper
+      - druid_postgres
+      - druid_coordinator
+    ports:
+      - "1001:8888"
+    command:
+      - router
+    env_file:
+      - druid.env
+      
+# AirFlow
+
+# Superset
+  redis:
+    image: redis:3.2
+    container_name: superset_cache
+    restart: unless-stopped
+    volumes:
+      - redis:/data
+    depends_on:
+      - druid_broker
+
+  superset_db:
+    env_file: superset.env
+    image: postgres:10
+    container_name: superset_db
+    restart: unless-stopped
+    volumes:
+      - superset_db:/var/lib/postgresql/data
+    depends_on:
+      - druid_broker
+
+  superset:
+    env_file: superset.env
+    build: *superset-build
+    container_name: superset_app
+    command: ["flask", "run", "-p", "8088", "--with-threads", "--reload", "--debugger", "--host=0.0.0.0"]
+    restart: unless-stopped
+    ports:
+      - 8088:8088
+    depends_on:
+      - superset_db
+      - redis
+      - druid_broker
+    volumes: *superset-volumes
+
+  superset-init:
+    build: *superset-build
+    container_name: superset_init
+    command: ["/app/docker-init.sh"]
+    env_file: superset.env
+    depends_on:
+      - superset_db
+      - redis
+      - druid_broker
+    volumes: *superset-volumes
+
+  superset-node:
+    image: node:10-jessie
+    container_name: superset_node
+    command: ["bash", "-c", "cd /app/superset-frontend && npm install --global webpack webpack-cli && npm install && npm run dev"]
+    env_file: superset.env
+    depends_on:
+      - superset_db
+      - redis
+      - druid_broker
+    volumes: *superset-volumes
+
+  superset-worker:
+    build: *superset-build
+    container_name: superset_worker
+    command: ["celery", "worker", "--app=superset.tasks.celery_app:app", "-Ofair"]
+    env_file: superset.env
+    restart: unless-stopped
+    depends_on:
+      - superset_db
+      - redis
+      - druid_broker
+    volumes: *superset-volumes
+
+# # Data Science
+#   spark-master:
+#     image: bde2020/spark-master:2.4.5-hadoop2.7
+#     container_name: spark-master
+#     restart: unless-stopped
+#     env_file:
+#       - ./hadoop.env
+
+#   spark-worker:
+#     image: bde2020/spark-worker:2.4.5-hadoop2.7
+#     restart: unless-stopped
+#     depends_on:
+#       - spark-master
+#     environment:
+#       - SPARK_MASTER=spark://spark-master:7077
+#     env_file:
+#       - ./hadoop.env
+
+#   jupyterhub:
+#     image: jupyterhub/jupyterhub:1.2
+#     restart: unless-stopped
+#     container_name: jupyterhub
+#     volumes:
+#       - "./jupyterlab:/data"
+#     ports:
+#       - "3002:8000"
