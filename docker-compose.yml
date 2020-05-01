@@ -122,15 +122,15 @@ services:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
     container_name: namenode
     restart: always
-    # ports:
-    #   - 9870:9870
-    #   - 9000:9000
+    ports:
+      - 9870:9870
+      - 9000:9000
     volumes:
       - hadoop_namenode:/hadoop/dfs/name
     environment:
       - CLUSTER_NAME=test
     env_file:
-      - ./hadoop.env
+      - hadoop/hadoop.env
 
   datanode:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
@@ -141,7 +141,7 @@ services:
     environment:
       SERVICE_PRECONDITION: "namenode:9870"
     env_file:
-      - ./hadoop.env
+      - hadoop/hadoop.env
     depends_on:
       - namenode
 
@@ -152,7 +152,7 @@ services:
     environment:
       SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864"
     env_file:
-      - ./hadoop.env
+      - hadoop/hadoop.env
     depends_on:
       - namenode
       - datanode
@@ -164,7 +164,7 @@ services:
     environment:
       SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
     env_file:
-      - ./hadoop.env
+      - hadoop/hadoop.env
     depends_on:
       - namenode
       - datanode
@@ -179,7 +179,7 @@ services:
     volumes:
       - hadoop_historyserver:/hadoop/yarn/timeline
     env_file:
-      - ./hadoop.env
+      - hadoop/hadoop.env
     depends_on:
       - namenode
       - datanode
@@ -220,6 +220,9 @@ services:
     container_name: druid_coordinator
     volumes:
       - druid_coordinator_var:/opt/druid/var
+      - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
+      - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
+      - ./druid/yarn-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/yarn-site.xml:ro
     depends_on: 
       - zookeeper
       - druid_postgres
@@ -230,13 +233,16 @@ services:
     command:
       - coordinator
     env_file:
-      - ./druid.env
+      - druid.env
 
   druid_broker:
     image: apache/druid:0.18.0
     container_name: druid_broker
     volumes:
       - druid_broker_var:/opt/druid/var
+      - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
+      - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
+      - ./druid/yarn-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/yarn-site.xml:ro
     depends_on: 
       - zookeeper
       - druid_postgres
@@ -248,13 +254,16 @@ services:
     command:
       - broker
     env_file:
-      - ./druid.env
+      - druid.env
 
   druid_historical:
     image: apache/druid:0.18.0
     container_name: druid_historical
     volumes:
       - historical_var:/opt/druid/var
+      - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
+      - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
+      - ./druid/yarn-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/yarn-site.xml:ro
     depends_on: 
       - zookeeper
       - druid_postgres
@@ -266,13 +275,16 @@ services:
     command:
       - historical
     env_file:
-      - ./druid.env
+      - druid.env
 
   druid_middlemanager:
     image: apache/druid:0.18.0
     container_name: druid_middlemanager
     volumes:
       - druid_middle_var:/opt/druid/var
+      - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
+      - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
+      - ./druid/yarn-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/yarn-site.xml:ro
     depends_on: 
       - zookeeper
       - druid_postgres
@@ -282,13 +294,16 @@ services:
     command:
       - middleManager
     env_file:
-      - ./druid.env
+      - druid.env
 
   druid_router:
     image: apache/druid:0.18.0
     container_name: druid_router
     volumes:
       - druid_router_var:/opt/druid/var
+      - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
+      - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
+      - ./druid/yarn-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/yarn-site.xml:ro
     depends_on:
       - zookeeper
       - druid_postgres
@@ -300,7 +315,7 @@ services:
     command:
       - router
     env_file:
-      - ./druid.env
+      - druid.env
 
 # AirFlow
 
@@ -378,7 +393,7 @@ services:
 #     container_name: spark-master
 #     restart: unless-stopped
 #     env_file:
-#       - ./hadoop.env
+#       - hadoop/hadoop.env
 
 #   spark-worker:
 #     image: bde2020/spark-worker:2.4.5-hadoop2.7
@@ -388,7 +403,7 @@ services:
 #     environment:
 #       - SPARK_MASTER=spark://spark-master:7077
 #     env_file:
-#       - ./hadoop.env
+#       - hadoop/hadoop.env
 
 #   jupyterhub:
 #     image: jupyterhub/jupyterhub:1.2
