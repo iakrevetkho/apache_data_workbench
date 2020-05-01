@@ -318,74 +318,83 @@ services:
       - druid.env
 
 # AirFlow
+  airflow:
+    image: puckel/docker-airflow:1.10.9
+    container_name: airflow
+    restart: unless-stopped
+    ports:
+      - "1002:8080"
+    depends_on:
+      - druid_coordinator
+      - druid_broker
 
-# # Superset
-#   redis:
-#     image: redis:3.2
-#     container_name: superset_cache
-#     restart: unless-stopped
-#     volumes:
-#       - redis:/data
-#     depends_on:
-#       - druid_broker
+# Superset
+  redis:
+    image: redis:3.2
+    container_name: superset_cache
+    restart: unless-stopped
+    volumes:
+      - redis:/data
+    depends_on:
+      - druid_broker
 
-#   superset_db:
-#     env_file: superset.env
-#     image: postgres:10
-#     container_name: superset_db
-#     restart: unless-stopped
-#     volumes:
-#       - superset_db:/var/lib/postgresql/data
-#     depends_on:
-#       - druid_broker
+  superset_db:
+    env_file: superset.env
+    image: postgres:10
+    container_name: superset_db
+    restart: unless-stopped
+    volumes:
+      - superset_db:/var/lib/postgresql/data
+    depends_on:
+      - druid_broker
 
-#   superset:
-#     env_file: superset.env
-#     build: *superset-build
-#     container_name: superset_app
-#     command: ["flask", "run", "-p", "8088", "--with-threads", "--reload", "--debugger", "--host=0.0.0.0"]
-#     restart: unless-stopped
-#     ports:
-#       - 8088:8088
-#     depends_on:
-#       - superset_db
-#       - redis
-#       - druid_broker
-#     volumes: *superset-volumes
+  superset:
+    env_file: superset.env
+    build: *superset-build
+    container_name: superset_app
+    command: ["flask", "run", "-p", "8088", "--with-threads", "--reload", "--debugger", "--host=0.0.0.0"]
+    restart: unless-stopped
+    ports:
+      - 8088:8088
+    depends_on:
+      - superset_db
+      - redis
+      - druid_broker
+    volumes: *superset-volumes
 
-#   superset-init:
-#     build: *superset-build
-#     container_name: superset_init
-#     command: ["/app/docker-init.sh"]
-#     env_file: superset.env
-#     depends_on:
-#       - superset_db
-#       - redis
-#       - druid_broker
-#     volumes: *superset-volumes
+  superset-init:
+    build: *superset-build
+    container_name: superset_init
+    command: ["/app/docker-init.sh"]
+    env_file: superset.env
+    depends_on:
+      - superset_db
+      - redis
+      - druid_broker
+    volumes: *superset-volumes
 
-#   superset-node:
-#     image: node:10-jessie
-#     container_name: superset_node
-#     command: ["bash", "-c", "cd /app/superset-frontend && npm install --global webpack webpack-cli && npm install && npm run dev"]
-#     env_file: superset.env
-#     depends_on:
-#       - superset_db
-#       - redis
-#       - druid_broker
-#     volumes: *superset-volumes
+  superset-node:
+    image: node:10-jessie
+    container_name: superset_node
+    command: ["bash", "-c", "cd /app/superset-frontend && npm install --global webpack webpack-cli && npm install && npm run dev"]
+    env_file: superset.env
+    depends_on:
+      - superset_db
+      - redis
+      - druid_broker
+    volumes: *superset-volumes
 
-#   superset-worker:
-#     build: *superset-build
-#     container_name: superset_worker
-#     command: ["celery", "worker", "--app=superset.tasks.celery_app:app", "-Ofair"]
-#     env_file: superset.env
-#     restart: unless-stopped
-#     depends_on:
-#       - superset_db
-#       - redis
-#       - druid_broker
-#     volumes: *superset-volumes
+  superset-worker:
+    build: *superset-build
+    container_name: superset_worker
+    command: ["celery", "worker", "--app=superset.tasks.celery_app:app", "-Ofair"]
+    env_file: superset.env
+    restart: unless-stopped
+    depends_on:
+      - superset_db
+      - redis
+      - druid_broker
+    volumes: *superset-volumes
 
 # # Data Science
 #   spark-master:
