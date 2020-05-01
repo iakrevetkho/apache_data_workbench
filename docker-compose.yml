@@ -28,7 +28,7 @@ volumes:
 x-superset-build: &superset-build
   args:
       NPM_BUILD_CMD: build-dev
-  context: ./
+  context: ./incubator-superset
   dockerfile: Dockerfile
   target: dev
 x-superset-volumes: &superset-volumes
