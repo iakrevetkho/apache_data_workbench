@@ -4,9 +4,8 @@ Open source Data Warehouse + Data Science Workbench on Apache Open Source compon
 ## Init
 
 1. `git submodule update --init  --recursive`
-2.  Create folder for data: `mkdir storage; chmod 777 storage`
-3.  Create folder for jupyterlab: `mkdir jupyterlab; chmod 777 jupyterlab`
-4.  Create folder for zeppelin: `mkdir zeppelin; chmod 777 zeppelin`
+2.  Create folder for jupyterlab: `mkdir jupyterlab; chmod 777 jupyterlab`
+3.  Create folder for jupyterlab: `mkdir -p druid; chmod 777 druid`
 
 ## Run
 
