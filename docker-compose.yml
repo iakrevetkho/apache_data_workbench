@@ -223,6 +223,7 @@ services:
     restart: unless-stopped
     environment:
       - ZOO_MY_ID=1
+      - ALLOW_ANONYMOUS_LOGIN=yes
     ports:
       - 2181:2181
 
@@ -243,6 +244,7 @@ services:
   hue-db:
     container_name: hue-db
     image: postgres:10
+    restart: unless-stopped
     environment:
       - POSTGRES_PASSWORD=hue
       - POSTGRES_USER=hue
@@ -252,6 +254,7 @@ services:
   druid_postgres:
     container_name: druid_postgres
     image: postgres:10
+    restart: unless-stopped
     volumes:
       - metadata_data:/var/lib/postgresql/data
     environment:
@@ -262,6 +265,7 @@ services:
   druid_coordinator:
     image: apache/druid:0.18.0
     container_name: druid_coordinator
+    restart: unless-stopped
     volumes:
       - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
       - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
@@ -271,6 +275,7 @@ services:
       - druid_postgres
       - namenode
       - datanode
+      - kafka
     ports:
       - "8081:8081"
     command:
@@ -281,6 +286,7 @@ services:
   druid_broker:
     image: apache/druid:0.18.0
     container_name: druid_broker
+    restart: unless-stopped
     volumes:
       - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
       - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
@@ -301,6 +307,7 @@ services:
   druid_historical:
     image: apache/druid:0.18.0
     container_name: druid_historical
+    restart: unless-stopped
     volumes:
       - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
       - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
@@ -321,6 +328,7 @@ services:
   druid_middlemanager:
     image: apache/druid:0.18.0
     container_name: druid_middlemanager
+    restart: unless-stopped
     volumes:
       - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
       - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
@@ -339,6 +347,7 @@ services:
   druid_router:
     image: apache/druid:0.18.0
     container_name: druid_router
+    restart: unless-stopped
     volumes:
       - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
       - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
@@ -358,19 +367,22 @@ services:
 
 # Kafka
   kafka:
-    image: wurstmeister/kafka:2.12-2.4.1
+    image: bitnami/kafka:2.0.0
     container_name: kafka
+    restart: unless-stopped
     ports:
-      - "9092:9092"
+      - 9092:9092
+      - 29094:29094
     environment:
-      # KAFKA_ADVERTISED_HOST_NAME: 192.168.99.100
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENERS: LISTENER_BOB://kafka:29092,LISTENER_FRED://kafka:9092,LISTENER_ALICE://kafka:29094
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_BOB://kafka:29092,LISTENER_FRED://localhost:9092,LISTENER_ALICE://never-gonna-give-you-up:29094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT,LISTENER_ALICE:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_BOB
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      ALLOW_PLAINTEXT_LISTENER: "yes"
     depends_on:
-      - zookeeper
-      - druid_broker
-      - druid_coordinator
+      - zookeeper   
 
 # # AirFlow
 #   airflow:
@@ -395,11 +407,9 @@ services:
 #     volumes:
 #       - redis:/data
 #     depends_on:
-#       # - druid_broker
 #       - namenode
 #       - datanode
 #       - resourcemanager
-#       - presto-coordinator
 
 #   superset_db:
 #     env_file: superset.env
@@ -409,11 +419,10 @@ services:
 #     volumes:
 #       - superset_db:/var/lib/postgresql/data
 #     depends_on:
-#       # - druid_broker
+#       - druid_broker
 #       - namenode
 #       - datanode
 #       - resourcemanager
-#       - presto-coordinator
 
 #   superset:
 #     env_file: superset.env
@@ -426,11 +435,10 @@ services:
 #     depends_on:
 #       - superset_db
 #       - redis
-#       # - druid_broker
+#       - druid_broker
 #       - namenode
 #       - datanode
 #       - resourcemanager
-#       - presto-coordinator
 #     volumes: *superset-volumes
 
 #   superset-init:
@@ -441,26 +449,25 @@ services:
 #     depends_on:
 #       - superset_db
 #       - redis
-#       # - druid_broker
+#       - druid_broker
 #       - namenode
 #       - datanode
 #       - resourcemanager
-#       - presto-coordinator
 #     volumes: *superset-volumes
 
 #   superset-node:
 #     image: node:10-jessie
 #     container_name: superset_node
+#     restart: unless-stopped
 #     command: ["bash", "-c", "cd /app/superset-frontend && npm install --global webpack webpack-cli && npm install && npm run dev"]
 #     env_file: superset.env
 #     depends_on:
 #       - superset_db
 #       - redis
-#       # - druid_broker
+#       - druid_broker
 #       - namenode
 #       - datanode
 #       - resourcemanager
-#       - presto-coordinator
 #     volumes: *superset-volumes
 
 #   superset-worker:
@@ -472,11 +479,10 @@ services:
 #     depends_on:
 #       - superset_db
 #       - redis
-#       # - druid_broker
+#       - druid_broker
 #       - namenode
 #       - datanode
 #       - resourcemanager
-#       - presto-coordinator
 #     volumes: *superset-volumes
 
 # # Data Science
@@ -486,6 +492,10 @@ services:
 #     restart: unless-stopped
 #     env_file:
 #       - hadoop/hadoop.env
+#     depends_on:
+#       - namenode
+#       - datanode
+#       - resourcemanager
 
 #   spark-worker:
 #     image: bde2020/spark-worker:2.4.5-hadoop2.7
@@ -504,4 +514,4 @@ services:
 #     volumes:
 #       - "./jupyterlab:/data"
 #     ports:
-#       - "3002:8000"
+#       - "8000:8000"
