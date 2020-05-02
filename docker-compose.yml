@@ -6,6 +6,11 @@ volumes:
   grafana_data: {}
 # Druid
   metadata_data: {}
+  middle_var: {}
+  historical_var: {}
+  broker_var: {}
+  coordinator_var: {}
+  router_var: {}
 # Superset
   superset_home:
   superset_node_modules:
@@ -267,6 +272,7 @@ services:
     container_name: druid_coordinator
     restart: unless-stopped
     volumes:
+      - coordinator_var:/opt/druid/var
       - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
       - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
       - ./druid/yarn-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/yarn-site.xml:ro
@@ -288,6 +294,7 @@ services:
     container_name: druid_broker
     restart: unless-stopped
     volumes:
+      - broker_var:/opt/druid/var
       - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
       - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
       - ./druid/yarn-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/yarn-site.xml:ro
@@ -309,6 +316,7 @@ services:
     container_name: druid_historical
     restart: unless-stopped
     volumes:
+      - historical_var:/opt/druid/var
       - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
       - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
       - ./druid/yarn-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/yarn-site.xml:ro
@@ -330,6 +338,7 @@ services:
     container_name: druid_middlemanager
     restart: unless-stopped
     volumes:
+      - middle_var:/opt/druid/var
       - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
       - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
       - ./druid/yarn-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/yarn-site.xml:ro
@@ -349,6 +358,7 @@ services:
     container_name: druid_router
     restart: unless-stopped
     volumes:
+      - router_var:/opt/druid/var
       - ./druid/core-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/core-site.xml:ro
       - ./druid/hdfs-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/hdfs-site.xml:ro
       - ./druid/yarn-site.xml:/opt/apache-druid-0.18.0/conf/druid/cluster/_common/yarn-site.xml:ro
@@ -399,91 +409,91 @@ services:
 #       - resourcemanager
 #       - presto-coordinator
 
-# # Superset
-#   redis:
-#     image: redis:3.2
-#     container_name: superset_cache
-#     restart: unless-stopped
-#     volumes:
-#       - redis:/data
-#     depends_on:
-#       - namenode
-#       - datanode
-#       - resourcemanager
+# Superset
+  redis:
+    image: redis:3.2
+    container_name: superset_cache
+    restart: unless-stopped
+    volumes:
+      - redis:/data
+    depends_on:
+      - namenode
+      - datanode
+      - resourcemanager
 
-#   superset_db:
-#     env_file: superset.env
-#     image: postgres:10
-#     container_name: superset_db
-#     restart: unless-stopped
-#     volumes:
-#       - superset_db:/var/lib/postgresql/data
-#     depends_on:
-#       - druid_broker
-#       - namenode
-#       - datanode
-#       - resourcemanager
+  superset_db:
+    env_file: superset.env
+    image: postgres:10
+    container_name: superset_db
+    restart: unless-stopped
+    volumes:
+      - superset_db:/var/lib/postgresql/data
+    depends_on:
+      - druid_broker
+      - namenode
+      - datanode
+      - resourcemanager
 
-#   superset:
-#     env_file: superset.env
-#     build: *superset-build
-#     container_name: superset_app
-#     command: ["flask", "run", "-p", "8088", "--with-threads", "--reload", "--debugger", "--host=0.0.0.0"]
-#     restart: unless-stopped
-#     ports:
-#       - 8088:8088
-#     depends_on:
-#       - superset_db
-#       - redis
-#       - druid_broker
-#       - namenode
-#       - datanode
-#       - resourcemanager
-#     volumes: *superset-volumes
+  superset:
+    env_file: superset.env
+    build: *superset-build
+    container_name: superset_app
+    command: ["flask", "run", "-p", "8088", "--with-threads", "--reload", "--debugger", "--host=0.0.0.0"]
+    restart: unless-stopped
+    ports:
+      - 8088:8088
+    depends_on:
+      - superset_db
+      - redis
+      - druid_broker
+      - namenode
+      - datanode
+      - resourcemanager
+    volumes: *superset-volumes
 
-#   superset-init:
-#     build: *superset-build
-#     container_name: superset_init
-#     command: ["/app/docker-init.sh"]
-#     env_file: superset.env
-#     depends_on:
-#       - superset_db
-#       - redis
-#       - druid_broker
-#       - namenode
-#       - datanode
-#       - resourcemanager
-#     volumes: *superset-volumes
+  superset-init:
+    build: *superset-build
+    container_name: superset_init
+    command: ["/app/docker-init.sh"]
+    env_file: superset.env
+    depends_on:
+      - superset_db
+      - redis
+      - druid_broker
+      - namenode
+      - datanode
+      - resourcemanager
+    volumes: *superset-volumes
 
-#   superset-node:
-#     image: node:10-jessie
-#     container_name: superset_node
-#     restart: unless-stopped
-#     command: ["bash", "-c", "cd /app/superset-frontend && npm install --global webpack webpack-cli && npm install && npm run dev"]
-#     env_file: superset.env
-#     depends_on:
-#       - superset_db
-#       - redis
-#       - druid_broker
-#       - namenode
-#       - datanode
-#       - resourcemanager
-#     volumes: *superset-volumes
+  superset-node:
+    image: node:10-jessie
+    container_name: superset_node
+    restart: unless-stopped
+    command: ["bash", "-c", "cd /app/superset-frontend && npm install --global webpack webpack-cli && npm install && npm run dev"]
+    env_file: superset.env
+    depends_on:
+      - superset_db
+      - redis
+      - druid_broker
+      - namenode
+      - datanode
+      - resourcemanager
+    volumes: *superset-volumes
 
-#   superset-worker:
-#     build: *superset-build
-#     container_name: superset_worker
-#     command: ["celery", "worker", "--app=superset.tasks.celery_app:app", "-Ofair"]
-#     env_file: superset.env
-#     restart: unless-stopped
-#     depends_on:
-#       - superset_db
-#       - redis
-#       - druid_broker
-#       - namenode
-#       - datanode
-#       - resourcemanager
-#     volumes: *superset-volumes
+  superset-worker:
+    build: *superset-build
+    container_name: superset_worker
+    command: ["celery", "worker", "--app=superset.tasks.celery_app:app", "-Ofair"]
+    env_file: superset.env
+    restart: unless-stopped
+    depends_on:
+      - superset_db
+      - redis
+      - druid_broker
+      - namenode
+      - datanode
+      - resourcemanager
+    volumes: *superset-volumes
 
 # # Data Science
 #   spark-master:
