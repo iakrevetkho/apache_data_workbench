@@ -130,12 +130,23 @@ services:
 
   datanode:
     image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
-    # container_name: datanode
+    container_name: datanode
     restart: unless-stopped
-    ports:
-      - 9867:9867
     volumes:
       - /data/hadoop/datanode:/hadoop/dfs/data
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870"
+    env_file:
+      - hadoop/hadoop.env
+    depends_on:
+      - namenode
+
+  datanode2:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode2
+    restart: unless-stopped
+    volumes:
+      - /data/hadoop/datanode2:/hadoop/dfs/data
     environment:
       SERVICE_PRECONDITION: "namenode:9870"
     env_file:
@@ -148,24 +159,26 @@ services:
     container_name: resourcemanager
     restart: always
     environment:
-      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864"
+      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 datanode2:9864"
     env_file:
       - hadoop/hadoop.env
     depends_on:
       - namenode
       - datanode
+      - datanode2
 
   nodemanager:
     image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
     container_name: nodemanager
     restart: always
     environment:
-      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
+      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 datanode2:9864 resourcemanager:8088"
     env_file:
       - hadoop/hadoop.env
     depends_on:
       - namenode
       - datanode
+      - datanode2
       - resourcemanager
 
   historyserver:
@@ -173,7 +186,7 @@ services:
     container_name: historyserver
     restart: always
     environment:
-      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
+      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 datanode2:9864 resourcemanager:8088"
     volumes:
       - /data/hadoop/historyserver:/hadoop/yarn/timeline
     env_file:
@@ -181,6 +194,7 @@ services:
     depends_on:
       - namenode
       - datanode
+      - datanode2
       - resourcemanager
 
   # hive-server:
